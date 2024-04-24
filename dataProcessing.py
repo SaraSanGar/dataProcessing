@@ -27,6 +27,17 @@ def detectFiles():
         files.append(nameElement)
     return files
 
+def getDetectionData(detectionName):
+    data = pd.read_csv('./rawData/'+fileName+'.csv')
+    if isinstance(detectionName, int):
+        detectionName = str(detectionName)
+    filtered_data = data[data['Id'].astype(str).str.strip() == detectionName.strip()]
+    deteccion_df = pd.DataFrame()
+    all_descriptors = ['Id', 'date', 'time', 'label','depth[m]', 'clip[usec]', 'msec', 'low_i', 'high_i', 'energy[%]', 'SNR[dB]','Fp[kHz]', 'Fc[kHz]', 'RMS[kHz]', 'Qrms', 'Fs[kHz]', 'slope_max_wvd']
+    for descriptor in all_descriptors:
+        deteccion_df[descriptor] = filtered_data[descriptor]
+    return deteccion_df
+
 def mapData(overview_df):
     map_df = pd.DataFrame()
     map_df['id'] = overview_df['Id']
@@ -44,15 +55,6 @@ def detectionsData(overview_df):
 def descriptorsData(overview_df):
     descriptors_columns = ['Descriptor', 'Media', 'Sdev', 'Mediana', 'Percentil10', 'Percentil90']
     all_descriptors = ['depth[m]', 'clip[usec]', 'msec', 'low_i', 'high_i', 'energy[%]', 'SNR[dB]','Fp[kHz]', 'Fc[kHz]', 'RMS[kHz]', 'Qrms', 'Fs[kHz]', 'slope_max_wvd']
-    '''
-    descriptors_df = pd.DataFrame(columns=descriptors_columns)
-
-   
-    for descriptor in all_descriptors:
-        descriptor_data = [descriptor, round(overview_df[descriptor].mean(), 2), round(overview_df[descriptor].std(), 2), round(overview_df[descriptor].median(), 2), round(overview_df[descriptor].quantile(.1), 2), round(overview_df[descriptor].quantile(.9), 2)]
-        descriptors_df.loc[len(descriptors_df)] = descriptor_data
-    return descriptors_df'''
-    print(overview_df.groupby('label'))
     dfs_per_label = {}
     for label, group in overview_df.groupby('label'):
         descriptors_df = pd.DataFrame(columns=descriptors_columns)
@@ -69,8 +71,7 @@ def descriptorsData(overview_df):
 
 def spectogramData(overview_df):
     #spectogram_columns = ['Data', 'Promedio', 'Sdev', 'Mediana']
-    #spectogram_df = pd.DataFrame()
-    spectogram_df = ""
+    spectogram_df = pd.DataFrame()
 
     '''
     all_descriptors = ['PosixTime', 'energy[%]']
@@ -83,6 +84,7 @@ def spectogramData(overview_df):
 def processData(fileName):
     overview_df = pd.read_csv('./rawData/'+fileName+'.csv')
     os.mkdir('./processedData/processed'+fileName)
+
     maps_df = mapData(overview_df)
     maps_df.to_csv('./processedData/processed'+fileName+'/map'+fileName+'.csv', index=False)
 
@@ -106,12 +108,17 @@ def openDeteccions(fileName):
         return file.read()
 
 def openDescriptors(fileName, label):
-        with open('./processedData/processed'+fileName+'/descriptors'+fileName+label+'.csv', 'r') as file:
-            return file.read()
+    with open('./processedData/processed'+fileName+'/descriptors'+fileName+label+'.csv', 'r') as file:
+        return file.read()
     
 def openSpectogram(fileName):
-    with open('./processedData/processed'+fileName+'/spectogram'+fileName+'.csv', 'r') as file:
-        return file.read()
+    file_path = './processedData/processed' + fileName + '/spectogram' + fileName + '.csv'
+
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as file:
+            return file.read()
+    else:
+        return ''
 
 @app.route("/processedData/map")
 def map_csv(): 
@@ -141,6 +148,23 @@ def files():
     files = detectFiles()
     return jsonify(files), 200
 
+@app.route("/processedDetection/all_detections")
+def detections(): 
+    global fileName
+    data = pd.read_csv('./rawData/'+fileName+'.csv')
+    detections_names = data['Id'].tolist()
+    return jsonify(detections_names), 200
+
+@app.route("/processedDetection", methods=['POST'])
+def processed_detectios():
+    data = request.get_json()
+    detectionName = data['detectionName']
+    detectionData = getDetectionData(detectionName).to_dict(orient='records')[0]
+    date = detectionData['date']
+    time = detectionData['time']
+    
+    return jsonify(fileName=fileName, date=date, time=time, detectionData=detectionData), 200
+
 @app.route("/processedData/", methods=['POST'])
 def processed_data():
     global fileName
@@ -154,6 +178,7 @@ def processed_data():
     labels = fileLabels()
 
     if not os.path.exists('./processedData/processed' + fileName):
+        print("Se han seleccionado datos sin procesar")
         processData(fileName)
     
     return jsonify(fileName=fileName, date=date, labels=labels), 200
