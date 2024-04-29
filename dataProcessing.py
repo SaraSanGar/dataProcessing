@@ -33,9 +33,12 @@ def getDetectionData(detectionName):
         detectionName = str(detectionName)
     filtered_data = data[data['Id'].astype(str).str.strip() == detectionName.strip()]
     deteccion_df = pd.DataFrame()
-    all_descriptors = ['Id', 'date', 'time', 'label','depth[m]', 'clip[usec]', 'msec', 'low_i', 'high_i', 'energy[%]', 'SNR[dB]','Fp[kHz]', 'Fc[kHz]', 'RMS[kHz]', 'Qrms', 'Fs[kHz]', 'slope_max_wvd']
+    all_descriptors = ['Id', 'state','date', 'time', 'label','depth[m]', 'clip[usec]', 'msec','energy[%]', 'SNR[dB]','Fp[kHz]', 'Fc[kHz]', 'RMS[kHz]', 'Qrms', 'Fs[kHz]', 'slope_max_wvd', 'lat[deg]', 'lon[deg]']
     for descriptor in all_descriptors:
+        if filtered_data[descriptor].empty:
+            filtered_data[descriptor] = 0
         deteccion_df[descriptor] = filtered_data[descriptor]
+        
     return deteccion_df
 
 def mapData(overview_df):
