@@ -73,15 +73,10 @@ def descriptorsData(overview_df):
     return dfs_per_label
 
 def spectogramData(overview_df):
-    #spectogram_columns = ['Data', 'Promedio', 'Sdev', 'Mediana']
     spectogram_df = pd.DataFrame()
-
-    '''
-    all_descriptors = ['PosixTime', 'energy[%]']
-    for column in all_descriptors:
-        spectogram_data = [column, round(overview_df[column].mean(), 2), round(overview_df[column].std(), 2), round(overview_df[column].median(), 2)]
-        spectogram_df.loc[len(spectogram_df)] = spectogram_data
-    '''
+    spectogram_df['time'] = overview_df['time']
+    spectogram_df['Fp'] = overview_df['Fp[kHz]']
+    spectogram_df['Fc'] = overview_df['Fc[kHz]']
     return spectogram_df
 
 def processData(fileName):
