@@ -2,6 +2,8 @@ from flask import Flask, jsonify, request
 from datetime import datetime
 from flask_cors import CORS
 import pandas as pd
+import numpy as np
+import wave
 import os
 
 app = Flask(__name__)
@@ -72,12 +74,19 @@ def descriptorsData(overview_df):
         dfs_per_label[label] = descriptors_df
     return dfs_per_label
 
-def spectogramData(overview_df):
-    spectogram_df = pd.DataFrame()
-    spectogram_df['time'] = overview_df['time']
-    spectogram_df['Fp'] = overview_df['Fp[kHz]']
-    spectogram_df['Fc'] = overview_df['Fc[kHz]']
-    return spectogram_df
+def spectrumData(archivo_wav):
+    with wave.open(archivo_wav, 'rb') as wav_file:
+        num_frames = wav_file.getnframes()
+        framerate = wav_file.getframerate()
+        duration = num_frames / framerate
+        frames = wav_file.readframes(num_frames)
+
+    datos = np.frombuffer(frames, dtype=np.int16).tolist()
+    return {
+        "datos": datos,
+        "duration": duration,
+        "num_frames": num_frames
+    }
 
 def processData(fileName):
     overview_df = pd.read_csv('./rawData/'+fileName+'.csv')
@@ -88,9 +97,6 @@ def processData(fileName):
 
     deteccions_df = detectionsData(overview_df)
     deteccions_df.to_csv('./processedData/processed'+fileName+'/deteccions'+fileName+'.csv', index=False)
-
-    spectogram_df = spectogramData(overview_df)
-    spectogram_df.to_csv('./processedData/processed'+fileName+'/spectogram'+fileName+'.csv', index=False)
 
     dfs_per_label = descriptorsData(overview_df)
     for label in dfs_per_label:
@@ -108,15 +114,6 @@ def openDeteccions(fileName):
 def openDescriptors(fileName, label):
     with open('./processedData/processed'+fileName+'/descriptors'+fileName+label+'.csv', 'r') as file:
         return file.read()
-    
-def openSpectogram(fileName):
-    file_path = './processedData/processed' + fileName + '/spectogram' + fileName + '.csv'
-
-    if os.path.exists(file_path):
-        with open(file_path, 'r') as file:
-            return file.read()
-    else:
-        return ''
 
 @app.route("/processedData/map")
 def map_csv(): 
@@ -136,10 +133,11 @@ def descriptors_csv():
         descriptors_csv = openDescriptors(fileName, label)
     return jsonify(descriptors_csv), 200
 
-@app.route("/processedData/spectogram")
-def spectogram_csv(): 
-    spectogram_csv = openSpectogram(fileName)
-    return jsonify(spectogram_csv), 200
+@app.route("/processedData/spectrum")
+def spectrum_csv(): 
+    spectrum_df, duration, num_frames = spectrumData('./wavData/'+fileName+'.wav')
+
+    return jsonify(spectrum_df, duration, num_frames), 200
 
 @app.route("/processedData/files")
 def files(): 
